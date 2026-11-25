@@ -1,0 +1,7 @@
+# Student data and access codes live in the Google Sheet and are added at deploy time; never commit them.
+api/_data.json
+api/_team.json
+api/_sheetlog.json
+public/
+node_modules/
+.vercel/

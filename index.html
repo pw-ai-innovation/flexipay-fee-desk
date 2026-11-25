@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flexi Pay Fee Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a ledger. One column of fee statements; the current-semester fee is green, the amount carried forward from Sem 1-4 is amber, everywhere. */
+:root{
+--bg:#f2f5f4; --surface:#ffffff; --sunken:#e9eeec; --ink:#14211f; --muted:#5a6966; --line:#d7dfdc;
+--accent:#0b6b5d; --accent-soft:#dff0ec; --on-accent:#ffffff;
+--carry:#a85a06; --carry-soft:#fbecd6;
+--good:#1f7a3d; --good-soft:#e1f2e6; --crit:#b3261e; --crit-soft:#fbe5e3; --info:#2b5ea7; --info-soft:#e3ecf9;
+--display:"Newsreader", Georgia, "Times New Roman", serif;
+--body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+--mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+--r:10px;
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]){
+color-scheme:dark;
+--bg:#0e1413; --surface:#172120; --sunken:#111a19; --ink:#e6eeec; --muted:#98a9a5; --line:#2a3836;
+--accent:#54c7b3; --accent-soft:#143530; --on-accent:#06211c;
+--carry:#f0aa4e; --carry-soft:#3a2a10;
+--good:#6fcf8c; --good-soft:#143220; --crit:#f2877f; --crit-soft:#3d1b18; --info:#8db6f0; --info-soft:#18283f;
+}
+}
+:root[data-theme="dark"]{
+color-scheme:dark;
+--bg:#0e1413; --surface:#172120; --sunken:#111a19; --ink:#e6eeec; --muted:#98a9a5; --line:#2a3836;
+--accent:#54c7b3; --accent-soft:#143530; --on-accent:#06211c;
+--carry:#f0aa4e; --carry-soft:#3a2a10;
+--good:#6fcf8c; --good-soft:#143220; --crit:#f2877f; --crit-soft:#3d1b18; --info:#8db6f0; --info-soft:#18283f;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:22px} h3{font-size:17px}
+p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.92em}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.top{background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1120px;margin:0 auto;padding:14px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;margin-right:auto}
+.brand b{font-family:var(--display);font-size:20px;font-weight:600;line-height:1.2}
+.brand span{font-size:12.5px;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--sunken);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;padding:6px 14px;border-radius:999px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tabs button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.who{font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:center}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 20px 64px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.card>h2,.card>h3{margin-bottom:10px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grow{flex:1 1 auto}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:500;background:var(--sunken);color:var(--muted);white-space:nowrap}
+.pill.cur{background:var(--accent-soft);color:var(--accent)}
+.pill.cf{background:var(--carry-soft);color:var(--carry)}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{border-color:transparent;color:var(--accent);padding:7px 8px}
+.btn.danger{color:var(--crit)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+input[type=text],input[type=email],input[type=number],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+textarea{width:100%;min-height:84px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:500}
+.notice{border-radius:var(--r);padding:12px 16px;border:1px solid var(--line);background:var(--surface)}
+.notice.warn{background:var(--carry-soft);border-color:transparent;color:var(--ink)}
+.notice.err{background:var(--crit-soft);border-color:transparent}
+.notice.info{background:var(--info-soft);border-color:transparent}
+/* student statement */
+.idrow{display:flex;gap:10px 22px;flex-wrap:wrap;align-items:baseline}
+.idrow h1{font-size:28px}
+.kv{display:flex;gap:6px 22px;flex-wrap:wrap;margin-top:6px;font-size:13.5px}
+.kv span b{font-weight:500;color:var(--muted);margin-right:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;min-width:74px;line-height:1.25}
+.chips button small{color:var(--muted);font-size:11px}
+.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.chips button[aria-pressed="true"] small{color:var(--accent)}
+.hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:center}
+.hero .big{font-family:var(--display);font-size:46px;font-weight:600;line-height:1.05;letter-spacing:-.02em}
+.hero .lbl{font-size:13px;color:var(--muted);font-weight:500;text-transform:none}
+.mandate{margin-top:10px;display:inline-flex;gap:8px;align-items:baseline;background:var(--sunken);border-radius:8px;padding:6px 12px}
+.mandate b{font-size:18px;font-weight:600}
+.split{display:flex;height:16px;border-radius:999px;overflow:hidden;background:var(--sunken)}
+.split i{display:block;height:100%}
+.split .a{background:var(--accent)} .split .b{background:var(--carry)}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.legend div{border-left:3px solid var(--accent);padding-left:10px}
+.legend div.b{border-color:var(--carry)}
+.legend b{display:block;font-size:19px;font-weight:600}
+.legend span{font-size:13px;color:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+td.r,th.r{text-align:right;white-space:nowrap}
+table.bif td{padding:9px 10px}
+table.bif tr.sec td{font-weight:600;padding-top:16px;border-bottom:1px solid var(--ink)}
+table.bif tr.sec.cur td:first-child{color:var(--accent)} table.bif tr.sec.cf td:first-child{color:var(--carry)}
+table.bif tr.sub td{font-weight:600;background:var(--sunken)}
+table.bif tr.tot td{font-weight:600;font-size:17px;border-top:2px solid var(--ink);border-bottom:0}
+table.bif td small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
+tr.clk{cursor:pointer} tr.clk:hover td{background:var(--sunken)}
+tr.sel td{background:var(--accent-soft)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.tile b{display:block;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.2}
+.tile span{font-size:12.5px;color:var(--muted)}
+.ticket{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.ticket .reply{background:var(--sunken);border-radius:8px;padding:8px 12px}
+.editor{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:18px;align-items:start}
+.semtable input[type=number]{width:84px} .semtable select{max-width:150px} .semtable input[type=text]{width:100%;min-width:140px} .semtable td{border-bottom:0}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.switch input{width:36px;height:20px;appearance:none;background:var(--line);border-radius:999px;position:relative;cursor:pointer;margin:0;transition:background .15s}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:left .15s}
+.switch input:checked{background:var(--accent)} .switch input:checked::after{left:18px}
+.sticky{position:sticky;top:12px}
+ul.plain{margin:0;padding-left:18px}
+.hits{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.hits button{display:flex;gap:8px;width:100%;border:0;border-bottom:1px solid var(--line);background:var(--surface);padding:8px 12px;text-align:left;cursor:pointer}
+.hits button:last-child{border-bottom:0} .hits button:hover{background:var(--sunken)}
+@media (max-width:820px){.hero,.editor{grid-template-columns:1fr}.hero .big{font-size:38px}.sticky{position:static}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+<div class="brand"><b>Flexi Pay Fee Desk</b><span>Batch 2024&ndash;28 &middot; Bangalore Campus &middot; Semester 5 mandate</span></div>
+<nav class="tabs" id="tabs" hidden></nav>
+<div class="who" id="who"></div>
+</div></header>
+<main class="wrap" id="app"><div class="card"><p class="muted">Loading fee records&hellip;</p></div></main>
+<script>
+/* Fee engine: Flexi Pay, batch 2024-28.
+Sem 1-4 collect 75% of the actual fee; the remaining 25% of each of those
+semesters is carried forward and recovered equally across Sem 5-8. */
+const FEE = { A: 123825, H: 73900, FLEXI_C: 92869, FLEXI_H: 55425, ADM: 50000, MONTHS: 6 };
+function computeFees(st) {
+const F = st.flexiUpto || 4;
+const sch = (Number(st.sch) || 0) / 100;
+const sems = st.sems || {};
+const defC = (FEE.A - FEE.FLEXI_C) * (1 - sch);
+let poolH = 0, settledH = 0;
+for (let n = 1; n <= 8; n++) {
+const c = sems[n] || {};
+const inH = c.hostel !== false;
+if (n <= F && inH) poolH += (c.hostelDefer != null ? Number(c.hostelDefer) : FEE.H - FEE.FLEXI_H);
+(c.adj || []).forEach(a => { settledH += Number(a.settlesHostel) || 0; });
+}
+const poolHGross = poolH;
+poolH = Math.max(0, poolH - settledH);
+const R = Math.round;
+const rows = [];
+for (let n = 1; n <= 8; n++) {
+const c = sems[n] || {};
+const flexi = n <= F, recov = n > F && n <= 2 * F;
+const inH = c.hostel !== false;
+const gross = flexi ? FEE.FLEXI_C : FEE.A;
+const schAmt = gross * sch;
+const net = gross - schAmt;
+const cc = c.conc && Number(c.conc.value) > 0 ? c.conc : null;
+const concAmt = cc ? (cc.mode === 'flat' ? Math.min(Number(cc.value), net) : net * Number(cc.value) / 100) : 0;
+const course = net - concAmt;
+const hostel = inH ? (c.hostelAmt != null ? Number(c.hostelAmt) : (flexi ? FEE.FLEXI_H : FEE.H)) : 0;
+const adj = (c.adj || []).map(a => ({ label: a.label || 'Adjustment', amount: R(Number(a.amount) || 0), settlesHostel: Number(a.settlesHostel) || 0 }));
+const adjTotal = adj.reduce((s, a) => s + a.amount, 0);
+const courseCF = recov ? defC : 0;
+const hostelCF = recov ? poolH / F : 0;
+const row = {
+n, flexi, recov, hostelIn: inH,
+gross: R(gross), schAmt: R(schAmt), conc: cc, concAmt: R(concAmt),
+course: c.courseAmt != null ? R(Number(c.courseAmt)) : R(net) - R(concAmt),
+manual: c.courseAmt != null ? R(Number(c.courseAmt)) - (R(net) - R(concAmt)) : 0, hostel: R(hostel), hostelPartial: inH && c.hostelAmt != null,
+adj, adjTotal,
+courseCF: R(courseCF), hostelCF: R(hostelCF),
+courseDef: flexi ? R(defC) : 0,
+hostelDef: flexi && inH ? R(c.hostelDefer != null ? Number(c.hostelDefer) : FEE.H - FEE.FLEXI_H) : 0,
+actualCourse: R(FEE.A * (1 - sch)),
+adm: n === 1 ? FEE.ADM : 0,
+note: c.note || ''
+};
+row.current = row.course + row.hostel + row.adjTotal;
+row.cf = row.courseCF + row.hostelCF;
+row.total = row.current + row.cf;
+row.monthly = R(row.total / FEE.MONTHS);
+rows.push(row);
+}
+return { rows, F, sch: Number(st.sch) || 0, poolHGross: R(poolHGross), settledH: R(settledH), poolH: R(poolH), defC: R(defC) };
+}
+</script>
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => (n < 0 ? '−' : '') + '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN');
+const clone = o => JSON.parse(JSON.stringify(o || {}));
+const CONC_TYPES = ['Internship', 'Academic', 'Special scholarship', 'Other'];
+const HEADS = ['Course fee', 'Hostel fee', 'Scholarship or concession', 'Amount carried forward from Sem 1-4', 'Monthly mandate amount', 'Something else'];
+const STATUS = { open: ['Open', 'cf'], review: ['In review', 'info'], resolved: ['Resolved', 'good'] };
+const S = { ready:false, slow:false, fatal:'', db:null, user:null, me:null, isAdmin:false,
+students:{}, studentsLoaded:false, mine:null, mineLoaded:false, ticketDocs:{}, myTickets:[], access:{}, myAccess:null, profiles:{},
+tab:'students', viewSem:5, editId:null, draft:null, dirty:false, previewId:null, q:'', filter:'all', tfilter:'active', msg:'', hits:null, busy:false, session:null, email:'', tickets:[], authStep:'email', authEmail:'', bulkMsg:'' };
+S.token = ''; S.teamLogin = false;
+function program(st){ const m = /^(\w+).*Phase-(\d+)/.exec(st.scheme || ''); return m ? m[1] + ' · Phase ' + m[2] : (st.scheme || ''); }
+function recRange(F){ return 'Sem ' + (F + 1) + '–' + (2 * F); }
+function flexRange(F){ return 'Sem 1–' + F; }
+function fmtDate(t){ try { return new Date(t).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }); } catch(e){ return ''; } }
+/* ---------- student statement ---------- */
+function statementHTML(st, id, opts){
+opts = opts || {};
+const C = computeFees(st), F = C.F;
+const n = Math.min(8, Math.max(1, S.viewSem)), r = C.rows[n - 1];
+const direct = F < 4;
+let h = '';
+h += '<section class="card"><div class="idrow"><h1>' + esc(st.name) + '</h1><span class="mono muted">' + esc(id) + '</span></div>' +
+'<div class="kv"><span><b>Programme</b>' + esc(program(st)) + '</span><span><b>Scholarship</b>' + (C.sch ? C.sch + '% on course fee' : 'None') + '</span>' +
+'<span><b>Payment mode</b>' + (direct ? 'Direct Pay from Sem ' + (F + 1) + ' (Flexi Pay in ' + flexRange(F) + ')' : 'Flexi Pay, monthly') + '</span></div></section>';
+h += '<div class="chips" role="group" aria-label="Choose a semester">';
+C.rows.forEach(x => { h += '<button type="button" data-act="sem" data-n="' + x.n + '" aria-pressed="' + (x.n === n) + '"><span>Sem ' + x.n + '</span><small class="num">' + inr(x.total) + '</small></button>'; });
+h += '</div>';
+const pct = r.total > 0 ? Math.max(0, Math.min(100, r.current / r.total * 100)) : 100;
+h += '<section class="card hero"><div><div class="lbl">Semester ' + n + ' payable' + (n < 5 ? ' (past semester)' : '') + '</div><div class="big num">' + inr(r.total) + '</div>' +
+'<div class="mandate"><span class="small muted">Monthly mandate</span><b class="num">' + inr(r.monthly) + '</b><span class="small muted">&times; ' + FEE.MONTHS + ' months</span></div></div>' +
+'<div><div class="split" role="img" aria-label="Split between this semester and carried forward"><i class="a" style="width:' + pct + '%"></i><i class="b" style="width:' + (100 - pct) + '%"></i></div>' +
+'<div class="legend"><div><b class="num">' + inr(r.current) + '</b><span>Semester ' + n + ' fee</span></div>' +
+'<div class="b"><b class="num">' + inr(r.cf) + '</b><span>Carried forward from ' + flexRange(F) + '</span></div></div></div></section>';
+/* bifurcation */
+let t = '<section class="card"><h2>Semester ' + n + ' fee bifurcation</h2><div class="scroll"><table class="bif num"><tbody>';
+t += '<tr class="sec cur"><td>Semester ' + n + ' fee</td><td class="r"></td></tr>';
+t += '<tr><td>Course fee' + (r.flexi ? '<small>Flexi Pay collects 75% of the ' + inr(FEE.A) + ' semester fee now. The rest moves to ' + recRange(F) + '.</small>' : '<small>Actual fee for this semester</small>') + '</td><td class="r">' + inr(r.gross) + '</td></tr>';
+if (r.schAmt) t += '<tr><td>Scholarship (' + C.sch + '%)</td><td class="r">' + inr(-r.schAmt) + '</td></tr>';
+if (r.conc) t += '<tr><td>' + esc(r.conc.type || 'Concession') + ' concession (' + (r.conc.mode === 'flat' ? 'flat' : r.conc.value + '%') + ')' + (r.conc.note ? '<small>' + esc(r.conc.note) + '</small>' : '') + '</td><td class="r">' + inr(-r.concAmt) + '</td></tr>';
+if (r.manual) t += '<tr><td>Adjustment by fee office</td><td class="r">' + inr(r.manual) + '</td></tr>';
+if (r.hostelIn) t += '<tr><td>Hostel fee' + (r.hostelPartial ? '<small>Amount set by fee office</small>' : r.flexi ? '<small>75% of the ' + inr(FEE.H) + ' semester fee</small>' : '<small>Actual fee for this semester</small>') + '</td><td class="r">' + inr(r.hostel) + '</td></tr>';
+else t += '<tr><td>Hostel fee<small>Hostel not opted this semester</small></td><td class="r">' + inr(0) + '</td></tr>';
+r.adj.forEach(a => { t += '<tr><td>' + esc(a.label) + '</td><td class="r">' + (a.amount ? inr(a.amount) : '—') + '</td></tr>'; });
+t += '<tr class="sub"><td>Semester ' + n + ' fee</td><td class="r">' + inr(r.current) + '</td></tr>';
+if (r.recov) {
+t += '<tr class="sec cf"><td>Carried forward from ' + flexRange(F) + '</td><td class="r"></td></tr>';
+t += '<tr><td>Course fee balance<small>' + inr(C.defC) + ' deferred in each of ' + flexRange(F) + ', recovered equally over ' + recRange(F) + '</small></td><td class="r">' + inr(r.courseCF) + '</td></tr>';
+t += '<tr><td>Hostel fee balance<small>' + (C.poolH ? inr(C.poolH) + ' pending from earlier hostel stay, recovered equally over ' + recRange(F) + (r.hostelIn ? '' : '. This stays payable after opting out of the hostel.') : (C.poolHGross ? 'Already settled' : 'No hostel stay in ' + flexRange(F))) + '</small></td><td class="r">' + inr(r.hostelCF) + '</td></tr>';
+t += '<tr class="sub"><td>Carried forward</td><td class="r">' + inr(r.cf) + '</td></tr>';
+}
+t += '<tr class="tot"><td>Total payable for Semester ' + n + '</td><td class="r">' + inr(r.total) + '</td></tr>';
+t += '</tbody></table></div>';
+if (r.flexi) t += '<p class="small muted" style="margin-top:10px">Deferred from this semester to ' + recRange(F) + ': course ' + inr(r.courseDef) + ', hostel ' + inr(r.hostelDef) + '.' + (r.adm ? ' The one-time admission fee of ' + inr(r.adm) + ' was paid separately at admission.' : '') + '</p>';
+if (r.note) t += '<p class="small" style="margin-top:10px"><span class="pill">Remark</span> ' + esc(r.note) + '</p>';
+t += '</section>';
+h += t;
+/* how the carry-forward was built */
+let b = '<section class="card"><h2>How the carried-forward amount was built</h2><p class="muted small" style="margin-bottom:10px">In ' + flexRange(F) + ' you paid 75% of each semester&rsquo;s fee, so ' + F + ' semesters were billed as ' + (F * 0.75) + '. The remaining 25% of each is collected in ' + recRange(F) + '.</p><div class="scroll"><table class="num"><thead><tr><th>Semester</th><th class="r">Course fee after scholarship</th><th class="r">Collected</th><th class="r">Carried forward</th><th class="r">Hostel fee</th><th class="r">Collected</th><th class="r">Carried forward</th></tr></thead><tbody>';
+let sc = 0, sh = 0;
+C.rows.filter(x => x.flexi).forEach(x => { sc += x.courseDef; sh += x.hostelDef;
+b += '<tr><td>Sem ' + x.n + '</td><td class="r">' + inr(x.actualCourse) + '</td><td class="r">' + inr(x.gross - x.schAmt) + '</td><td class="r">' + inr(x.courseDef) + '</td>' +
+(x.hostelIn ? '<td class="r">' + inr(x.hostel + x.hostelDef) + '</td><td class="r">' + inr(x.hostel) + '</td><td class="r">' + inr(x.hostelDef) + '</td>' : '<td class="r muted" colspan="3">Not in hostel</td>') + '</tr>'; });
+b += '<tr class="sub"><td><b>Total carried forward</b></td><td></td><td></td><td class="r"><b>' + inr(sc) + '</b></td><td></td><td></td><td class="r"><b>' + inr(sh) + '</b></td></tr>';
+if (C.settledH) b += '<tr><td colspan="6">Hostel balance already recovered or waived</td><td class="r">' + inr(-Math.min(C.settledH, sh)) + '</td></tr>';
+b += '<tr><td colspan="3">Recovered in each of ' + recRange(F) + '</td><td class="r"><span class="pill cf">' + inr(C.defC) + '</span></td><td colspan="2"></td><td class="r"><span class="pill cf">' + inr(C.poolH / F) + '</span></td></tr>';
+b += '</tbody></table></div></section>';
+h += b;
+/* all semesters */
+let a = '<section class="card"><h2>All semesters</h2><div class="scroll"><table class="num"><thead><tr><th>Semester</th><th class="r">Course fee</th><th class="r">Hostel fee</th><th class="r">Carried forward</th><th class="r">Total</th><th class="r">Monthly</th><th>Applied</th></tr></thead><tbody>';
+C.rows.forEach(x => {
+const tags = [];
+if (x.conc) tags.push('<span class="pill cur">' + esc(x.conc.type || 'Concession') + ' ' + (x.conc.mode === 'flat' ? inr(x.concAmt) : x.conc.value + '%') + '</span>');
+if (!x.hostelIn) tags.push('<span class="pill">Hostel opted out</span>');
+if (x.adjTotal) tags.push('<span class="pill cf">Adjustment ' + inr(x.adjTotal) + '</span>');
+a += '<tr class="clk' + (x.n === n ? ' sel' : '') + '" data-act="sem" data-n="' + x.n + '"><td>Sem ' + x.n + (x.n === 5 ? ' <span class="pill info">Current</span>' : '') + '</td><td class="r">' + inr(x.course) + '</td><td class="r">' + inr(x.hostel) + '</td><td class="r">' + (x.cf ? inr(x.cf) : '—') + '</td><td class="r"><b>' + inr(x.total) + '</b></td><td class="r">' + inr(x.monthly) + '</td><td>' + tags.join(' ') + '</td></tr>';
+});
+a += '</tbody></table></div></section>';
+h += a;
+h += ticketsStudentHTML(st, id);
+return h;
+}
+function ticketsStudentHTML(st, id){
+const mineT = allTickets().filter(t => t.enrollId === id).sort((x, y) => (y.at || 0) - (x.at || 0));
+let h = '<section class="card stack"><div><h2>Found a discrepancy?</h2><p class="muted small">Raise a ticket and the fee team will reply here.</p></div>' +
+'<form id="ticketForm" class="stack" autocomplete="off"><div class="row">' +
+'<label class="f">Semester<select id="tk-sem">' + [1,2,3,4,5,6,7,8].map(i => '<option value="' + i + '"' + (i === S.viewSem ? ' selected' : '') + '>Semester ' + i + '</option>').join('') + '</select></label>' +
+'<label class="f grow">What looks wrong<select id="tk-head">' + HEADS.map(x => '<option>' + esc(x) + '</option>').join('') + '</select></label></div>' +
+'<label class="f">Describe the issue<textarea id="tk-msg" maxlength="1500" placeholder="For example: I opted out of the hostel for Semester 5 but the hostel fee is still included." required></textarea></label>' +
+'<div class="row"><button class="btn primary" type="submit"' + (S.busy ? ' disabled' : '') + '>Raise ticket</button><span class="small muted" id="tk-status">' + esc(S.msg) + '</span></div></form>';
+if (mineT.length) {
+h += '<h3>Your tickets</h3>';
+mineT.forEach(t => { const s = STATUS[t.status] || STATUS.open;
+h += '<div class="ticket"><div class="row"><span class="pill ' + s[1] + '">' + s[0] + '</span><b>Sem ' + esc(t.sem) + ' &middot; ' + esc(t.head) + '</b><span class="small muted mono">#' + esc(t.id) + '</span><span class="small muted">' + fmtDate(t.at) + '</span></div><p>' + esc(t.msg) + '</p>' +
+(t.reply ? '<div class="reply"><span class="small muted">Fee team, ' + fmtDate(t.repliedAt) + '</span><p>' + esc(t.reply) + '</p></div>' : '') + '</div>'; });
+}
+return h + '</section>';
+}
+function studentHomeHTML(){
+if (S.mine) return statementHTML(S.mine, S.mine.enrollId);
+return '<section class="card stack" style="max-width:560px"><h2>No fee record for this email</h2><p class="muted">You are signed in as <b>' + esc(S.email) + '</b>. This email is not registered with the fee office. Sign in with the email you gave the college, or ask the fee team to add this one.</p><div><button class="btn" data-act="signout">Sign out</button></div></section>';
+}
+function loginHTML(){
+let h = '<section class="card stack" style="max-width:480px;margin:24px auto;width:100%"><h2>' + (S.teamLogin ? 'Fee team sign-in' : 'Sign in to see your fees') + '</h2>';
+if (S.teamLogin) h += '<form id="loginForm" class="stack"><label class="f">Fee team access code<input type="password" id="lg-code" autocomplete="current-password" required></label><div class="row"><button class="btn primary" type="submit"' + (S.busy ? ' disabled' : '') + '>Sign in</button><button class="btn ghost" type="button" data-act="teamlogin">Student sign-in</button></div></form>';
+else h += '<p class="muted">Use the email address registered with the fee office and the access code the fee office sent you.</p><form id="loginForm" class="stack"><label class="f">Email<input type="email" id="lg-email" autocomplete="username" required></label><label class="f">Access code<input type="text" id="lg-code" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label><div class="row"><button class="btn primary" type="submit"' + (S.busy ? ' disabled' : '') + '>Sign in</button><button class="btn ghost" type="button" data-act="teamlogin">Fee team sign-in</button></div></form>';
+return h + '<p class="small" style="color:var(--crit)">' + esc(S.msg) + '</p></section>';
+}
+/* ---------- admin ---------- */
+function ids(){ return Object.keys(S.students).sort(); }
+function allTickets(){ return S.tickets.map(t => Object.assign({}, t, { name: (S.students[t.enrollId] || S.mine || {}).name || '' })).sort((a, b) => (b.at || 0) - (a.at || 0)); }
+function adminStudentsHTML(){
+const list = ids();
+if (!S.studentsLoaded) return '<div class="card"><p class="muted">' + (S.slow ? 'Fee records can&rsquo;t be reached yet. This page keeps trying.' : 'Loading fee records&hellip;') + '</p></div>';
+if (!list.length) return '<div class="card"><h2>No fee records yet</h2><p class="muted">Student records have not been loaded into this portal.</p></div>';
+const rows = list.map(id => { const st = S.students[id]; const r = computeFees(st).rows[4]; return { id, st, r }; });
+const tk = allTickets();
+const cnt = { out: rows.filter(x => !x.r.hostelIn).length, conc: rows.filter(x => x.r.conc).length, flag: rows.filter(x => (x.st.flags || []).length).length,
+open: tk.filter(t => t.status !== 'resolved').length, email: rows.filter(x => x.st.email).length };
+const bill = rows.reduce((s, x) => s + x.r.total, 0), cf = rows.reduce((s, x) => s + x.r.cf, 0);
+let h = '<div class="tiles"><div class="tile"><b class="num">' + rows.length + '</b><span>Flexi Pay students</span></div>' +
+'<div class="tile"><b class="num">' + inr(bill) + '</b><span>Sem 5 billing, of which ' + inr(cf) + ' carried forward</span></div>' +
+'<div class="tile"><b class="num">' + cnt.out + '</b><span>Hostel opted out in Sem 5</span></div>' +
+'<div class="tile"><b class="num">' + cnt.conc + '</b><span>Concessions in Sem 5</span></div>' +
+'<div class="tile"><b class="num">' + cnt.flag + '</b><span>Records to review</span></div>' +
+'<div class="tile"><b class="num">' + cnt.open + '</b><span>Open tickets</span></div>' +
+'<div class="tile"><b class="num">' + cnt.email + ' / ' + rows.length + '</b><span>Students with a sign-in email</span></div></div>';
+const q = S.q.trim().toLowerCase();
+const F = { all: () => true, review: x => (x.st.flags || []).length, out: x => !x.r.hostelIn, conc: x => !!x.r.conc, changed: x => x.st.sems && Object.keys(x.st.sems).length };
+const shown = rows.filter(x => F[S.filter](x) && (!q || x.id.includes(q) || (x.st.name || '').toLowerCase().includes(q) || (x.st.email || '').includes(q)));
+h += '<section class="card stack"><div class="row"><h2 class="grow">Students</h2><input type="search" id="q" placeholder="Search name, ID or email" value="' + esc(S.q) + '" aria-label="Search students" style="width:260px;max-width:100%"></div><div class="chips">' +
+[['all','All'],['review','To review'],['out','Hostel out in Sem 5'],['conc','Concession in Sem 5'],['changed','Any change recorded']].map(f => '<button type="button" data-act="filter" data-f="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '" style="min-width:0"><span>' + f[1] + '</span></button>').join('') + '</div>' +
+'<div class="scroll"><table class="num"><thead><tr><th>Enrollment</th><th>Name</th><th>Programme</th><th class="r">Scholarship</th><th>Sem 5 hostel</th><th>Sem 5 concession</th><th class="r">Sem 5 fee</th><th class="r">Carried forward</th><th class="r">Sem 5 payable</th><th class="r">Monthly</th><th></th></tr></thead><tbody>';
+shown.forEach(x => { const r = x.r;
+h += '<tr class="clk" data-act="edit" data-id="' + x.id + '"><td class="mono">' + x.id + '</td><td><b>' + esc(x.st.name) + '</b></td><td>' + esc(program(x.st)) + '</td><td class="r">' + (x.st.sch || 0) + '%</td>' +
+'<td>' + (r.hostelIn ? '<span class="pill good">In</span>' : '<span class="pill">Out</span>') + '</td><td>' + (r.conc ? '<span class="pill cur">' + esc(r.conc.type) + ' ' + (r.conc.mode === 'flat' ? inr(r.concAmt) : r.conc.value + '%') + '</span>' : '<span class="muted">—</span>') + '</td>' +
+'<td class="r">' + inr(r.current) + '</td><td class="r">' + inr(r.cf) + '</td><td class="r"><b>' + inr(r.total) + '</b></td><td class="r">' + inr(r.monthly) + '</td><td>' + ((x.st.flags || []).length ? '<span class="pill crit">Review</span> ' : '') + (x.st.email ? '' : '<span class="pill">No email</span>') + '</td></tr>'; });
+if (!shown.length) h += '<tr><td colspan="11" class="muted">No students match.</td></tr>';
+h += '</tbody></table></div><p class="small muted">Select a student to see their statement exactly as they see it. Fee changes are made in the fee sheet.</p></section>';
+return h;
+}
+function adminTicketsHTML(){
+const all = allTickets();
+const shown = all.filter(t => S.tfilter === 'all' || (S.tfilter === 'active' ? t.status !== 'resolved' : t.status === 'resolved'));
+let h = '<section class="card stack"><div class="row"><h2 class="grow">Tickets</h2><div class="chips">' + [['active','Open and in review'],['resolved','Resolved'],['all','All']].map(f => '<button type="button" data-act="tfilter" data-f="' + f[0] + '" aria-pressed="' + (S.tfilter === f[0]) + '" style="min-width:0"><span>' + f[1] + '</span></button>').join('') + '</div></div>';
+if (!shown.length) h += '<p class="muted">' + (all.length ? 'No tickets in this view.' : 'No tickets raised yet. Students raise them from their fee statement.') + '</p>';
+shown.forEach(t => { const s = STATUS[t.status] || STATUS.open; const key = String(t.id);
+h += '<div class="ticket"><div class="row"><span class="pill ' + s[1] + '">' + s[0] + '</span><b>' + esc(t.name || '') + '</b><span class="mono small muted">' + esc(t.enrollId) + '</span><span class="grow"></span><span class="small muted mono">#' + esc(t.id) + '</span><span class="small muted">' + fmtDate(t.at) + '</span></div>' +
+'<div><b>Sem ' + esc(t.sem) + ' &middot; ' + esc(t.head) + '</b><p>' + esc(t.msg) + '</p></div>' +
+'<form class="stack" data-form="reply" data-key="' + esc(key) + '"><label class="f">Reply to student<textarea id="rp-' + esc(t.id) + '" maxlength="1500">' + esc(t.reply || '') + '</textarea></label><div class="row"><label class="f">Status<select id="st-' + esc(t.id) + '">' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + ((t.status || 'open') === k ? ' selected' : '') + '>' + STATUS[k][0] + '</option>').join('') + '</select></label><button class="btn primary" type="submit" style="align-self:flex-end">Save reply</button>' +
+(S.students[t.enrollId] ? '<button class="btn ghost" type="button" data-act="edit" data-id="' + esc(t.enrollId) + '" style="align-self:flex-end">Open statement</button>' : '') + '</div></form></div>'; });
+return h + '</section>';
+}
+/* ---------- render ---------- */
+function render(){
+const tabs = $('#tabs');
+if (S.isAdmin && S.session) { const open = allTickets().filter(t => t.status !== 'resolved').length;
+tabs.hidden = false;
+tabs.innerHTML = '<button data-act="tab" data-t="students"' + (S.tab === 'students' ? ' aria-current="page"' : '') + '>Students</button><button data-act="tab" data-t="tickets"' + (S.tab === 'tickets' ? ' aria-current="page"' : '') + '>Tickets' + (open ? ' (' + open + ')' : '') + '</button>'; }
+else tabs.hidden = true;
+$('#who').innerHTML = S.session ? '<span>' + esc(S.email) + '</span><button class="btn" data-act="signout">Sign out</button>' : '';
+let h = '';
+if (S.fatal) h = '<div class="notice err">' + esc(S.fatal) + '</div>';
+else if (!S.ready) h = '<div class="card"><p class="muted">' + (S.slow ? 'This is taking longer than usual. The page keeps trying.' : 'Loading fee records&hellip;') + '</p></div>';
+else if (!S.session) h = loginHTML();
+else if (S.isAdmin) {
+if (S.previewId && S.students[S.previewId]) { const ps = S.students[S.previewId];
+h = '<div class="notice info row"><span class="grow">This is the statement <b>' + esc(ps.name) + '</b> sees. Sign-in email: ' + (ps.email ? esc(ps.email) : 'not added yet') + '.</span><button class="btn" data-act="endpreview">Back to all students</button></div>' +
+((ps.flags || []).length ? '<div class="notice warn"><b>Fee team note</b><ul class="plain">' + ps.flags.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul></div>' : '') + statementHTML(ps, S.previewId); }
+else if (S.tab === 'tickets') h = adminTicketsHTML();
+else h = adminStudentsHTML();
+} else h = studentHomeHTML();
+app.innerHTML = h;
+}
+let pending = false;
+function softRender(){ const a = document.activeElement; if (a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { pending = true; return; } render(); }
+app.addEventListener('focusout', () => { if (pending) setTimeout(() => { const a = document.activeElement; if (!(a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { pending = false; render(); } }, 60); });
+function flash(m){ S.msg = m; render(); if (m) setTimeout(() => { if (S.msg === m) { S.msg = ''; softRender(); } }, 6000); }
+function errText(e){ return 'Could not save just now. Check your connection and try again.'; }
+/* ---------- actions ---------- */
+function openEditor(id){ if (!S.students[id]) return; S.previewId = id; S.viewSem = 5; S.tab = 'students'; S.msg = ''; render(); window.scrollTo(0, 0); }
+function resolveProfiles(){}
+async function api(action, payload){
+const r = await fetch('/api/portal', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign({ action, token: S.token }, payload || {})) });
+let j = {}; try { j = await r.json(); } catch (e) {}
+if (r.status === 401 && action !== 'login') { signOut(); throw new Error('expired'); }
+if (!r.ok) throw new Error(j.error || 'Something went wrong. Try again.');
+return j;
+}
+function resetState(){ S.isAdmin = false; S.students = {}; S.studentsLoaded = false; S.mine = null; S.tickets = []; S.previewId = null; S.email = ''; S.tab = 'students'; S.session = null; S.token = ''; }
+function signOut(){ resetState(); try { sessionStorage.removeItem('fp_token'); } catch (e) {} S.ready = true; S.msg = ''; render(); }
+function apply(d){ S.isAdmin = d.role === 'a'; S.email = d.email || (S.isAdmin ? 'Fee team' : '');
+if (S.isAdmin) { S.students = d.students || {}; S.studentsLoaded = true; S.mine = null; } else S.mine = d.student || null;
+S.tickets = d.tickets || []; S.session = { user: { id: 'x' } }; S.ready = true; }
+async function load(){ try { apply(await api('load')); render(); } catch (e) { if (e.message !== 'expired') { S.fatal = 'Fee records could not be loaded. Check your connection and reload the page.'; S.ready = true; render(); } } }
+document.addEventListener('click', async ev => {
+const el = ev.target.closest('[data-act]'); if (!el) return; const act = el.dataset.act;
+if (act === 'sem') { S.viewSem = Number(el.dataset.n); render(); }
+else if (act === 'tab') { S.tab = el.dataset.t; S.previewId = null; if (S.tab === 'tickets') { /* keep draft */ } S.msg = ''; render(); }
+else if (act === 'filter') { S.filter = el.dataset.f; render(); }
+else if (act === 'tfilter') { S.tfilter = el.dataset.f; render(); }
+else if (act === 'edit') openEditor(el.dataset.id);
+else if (act === 'endpreview') { S.previewId = null; S.viewSem = 5; render(); }
+else if (act === 'signout') signOut();
+else if (act === 'teamlogin') { S.teamLogin = !S.teamLogin; S.msg = ''; render(); }
+});
+document.addEventListener('input', ev => { const el = ev.target;
+if (el.id === 'q') { S.q = el.value; const pos = el.selectionStart; render(); const n = $('#q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
+});
+document.addEventListener('submit', async ev => {
+ev.preventDefault(); const f = ev.target;
+if (f.id === 'ticketForm') { const msg = $('#tk-msg').value.trim(); if (!msg || S.busy) return;
+const id = S.isAdmin && S.previewId ? S.previewId : S.mine.enrollId;
+S.busy = true; try { const d = await api('ticket', { enrollId: id, sem: Number($('#tk-sem').value), head: $('#tk-head').value, msg }); S.tickets = d.tickets; S.busy = false; flash('Ticket raised. The fee team will reply here.'); }
+catch (e) { S.busy = false; if (e.message !== 'expired') flash(e.message); } }
+else if (f.id === 'loginForm') { if (S.busy) return; const em = $('#lg-email'); const email = em ? em.value.trim().toLowerCase() : ''; const code = $('#lg-code').value.trim();
+S.busy = true; S.msg = ''; try { const d = await api('login', { email, code, team: S.teamLogin }); S.token = d.token; try { sessionStorage.setItem('fp_token', d.token); } catch (e) {} S.busy = false; apply(d); render(); }
+catch (e) { S.busy = false; S.msg = e.message; render(); } }
+else if (f.dataset.form === 'reply') { try { const d = await api('reply', { id: Number(f.dataset.key), reply: f.querySelector('textarea').value.trim(), status: f.querySelector('select').value }); S.tickets = d.tickets; flash('Reply saved.'); } catch (e) { if (e.message !== 'expired') flash(e.message); } }
+});
+/* ---------- data ---------- */
+async function init(){
+try { S.token = sessionStorage.getItem('fp_token') || ''; } catch (e) {}
+if (S.token) await load(); else { S.ready = true; render(); }
+}
+init();
+})();
+</script>
+</body>
+</html>
